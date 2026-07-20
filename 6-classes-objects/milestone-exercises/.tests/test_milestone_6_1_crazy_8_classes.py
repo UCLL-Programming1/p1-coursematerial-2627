@@ -1,0 +1,415 @@
+import random
+
+from p1_util.tests.test_util import call_function, capture_outputs, run_script
+
+import pytest
+
+SEED = 17
+SUITS = ["H", "D", "C", "S"]
+RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+FULL_DECK = [suit + rank for suit in SUITS for rank in RANKS]
+
+PROMPT = "Play card or draw (D): > "
+SUIT_PROMPT = "Choose suit (H D C S): > "
+NOT_IN_HAND = "You don't have this card in your hand, play again\n"
+NO_MATCH = "The card you want to play doesn't match the suit nor rank of the top card\n"
+DREW = "Player drew a card\n"
+
+# One complete scripted game: every line the two players type, in order.
+GAME = ["h3", "ca", "c8", "S", "sk", "d", "s2", "h2", "hq", "dq", "d8", "S", "d", "sj"]
+# More scripted games, each with the seed that deals its cards.
+GAMES = [
+    (SEED, GAME),  # player 2 wins
+    (28, ["CJ", "hj", "h10", "d", "s10", "sq", "s3", "s9", "h8", "h"]),  # player 1 wins by playing an 8 as their last card
+]
+
+
+# --- building objects out of the student's classes -----------------------------
+# call_function loads the script's definitions without running main(), so every
+# helper below hands back a real object of the student's own class.
+
+def make_card(value):
+    return call_function(__file__, "Card", [value])
+
+
+def make_deck(values=None):
+    deck = call_function(__file__, "Deck", [])
+    if values is not None:
+        deck.cards = [make_card(value) for value in values]
+    return deck
+
+
+def make_pile(top, current_suit=None, below=()):
+    pile = call_function(__file__, "DiscardPile", [make_card(top)])
+    pile.cards = [make_card(value) for value in below] + [make_card(top)]
+    pile.current_suit = current_suit if current_suit is not None else top[0]
+    return pile
+
+
+def make_player(values):
+    return call_function(__file__, "Player", [[make_card(value) for value in values]])
+
+
+def turn_text(top, current_suit, hand, typed, after=""):
+    """What one pass through the turn loop prints."""
+    return (
+        f"Top card: {top}\n"
+        f"Top suit: {current_suit}\n"
+        f"Your hand: [{', '.join(hand)}]\n"
+        f"{PROMPT}{typed}\n"
+        f"{after}"
+        "\n"
+    )
+
+
+def deal_the_same_cards(seed=SEED):
+    """Rebuild the deal the program gets from random.seed(SEED): the deck is
+    built in the same order and every card is drawn with the same randrange
+    call, so the test knows exactly which cards end up where."""
+    rng = random.Random(seed)
+    deck = list(FULL_DECK)
+
+    def draw(number=1):
+        return [deck.pop(rng.randrange(len(deck))) for _ in range(number)]
+
+    return deck, draw
+
+
+def build_expected(inputs, seed=SEED):
+    """Play the scripted game and build everything the program prints."""
+    deck, draw = deal_the_same_cards(seed)
+    hands = [draw(5), draw(5)]
+    pile = draw(1)
+    suit = pile[0][0]
+
+    moves = iter(inputs)
+    out = []
+    player = 0
+    while True:
+        hand = hands[player]
+        out.append(f"Player {player + 1} Turn!\n")
+
+        finish_turn = False
+        while not finish_turn:
+            # what the program prints before it knows what the player will type
+            top_card, shown_suit, shown_hand = pile[-1], suit, list(hand)
+            typed = next(moves)
+            move = typed.upper()
+            after = ""
+
+            if move == "D":
+                finish_turn = True
+                after = DREW
+                hand.extend(draw(1))
+                if not deck:
+                    while len(pile) > 1:
+                        deck.append(pile.pop(0))
+
+            elif move not in hand:
+                after = NOT_IN_HAND
+
+            elif not (move[0] == suit or move[1:] == top_card[1:] or move[1:] == "8"):
+                after = NO_MATCH
+
+            else:
+                finish_turn = True
+                hand.remove(move)
+                pile.append(move)
+                if move[1] == "8":
+                    chosen = next(moves)
+                    after = SUIT_PROMPT + chosen + "\n"
+                    suit = chosen.upper()
+                else:
+                    suit = move[0]
+
+            out.append(turn_text(top_card, shown_suit, shown_hand, typed, after))
+
+        if not hand:
+            out.append(f"Player {player + 1} wins!\n")
+            return "".join(out)
+        player = 1 - player
+
+
+# --- Card ----------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "value,suit,rank",
+    [("DA", "D", "A"), ("C10", "C", "10"), ("H8", "H", "8"), ("SK", "S", "K")]
+)
+def test_function(pytestconfig, value, suit, rank):
+    card = make_card(value)
+    assert card.suit == suit, f"Card({value!r}).suit should be {suit!r}, got {card.suit!r}."
+    assert card.rank == rank, f"Card({value!r}).rank should be {rank!r}, got {card.rank!r}."
+    assert repr(card) == value, (
+        f"A Card should be printed as {value!r}, but printing Card({value!r}) "
+        f"shows {repr(card)}."
+    )
+
+
+@pytest.mark.parametrize(
+    "value,top,current_suit,expected",
+    [
+        ("C10", "C3", "C", True),    # same suit as the current suit
+        ("D9", "S9", "S", True),     # same rank as the top card
+        ("H8", "SK", "S", True),     # an 8 can always be played
+        ("H7", "SK", "D", False),    # neither the suit nor the rank matches
+        ("D5", "D8", "S", False),    # the top card is an 8, but the suit was changed to S
+        ("S5", "D8", "S", True),     # ... so a spade is what matches now
+        ("HK", "SK", "D", True),     # the rank matches even though the suit does not
+    ]
+)
+def test_function_is_playable(pytestconfig, value, top, current_suit, expected):
+    card = make_card(value)
+    pile = make_pile(top, current_suit)
+    result = card.is_playable(pile)
+    assert result == expected, (
+        f"With {top} on top of the discard pile and {current_suit} as the current suit, "
+        f"{value}.is_playable(discard_pile) should be {expected}, but it returned {result!r}."
+    )
+
+
+# --- Deck ----------------------------------------------------------------------
+
+def test_function_deck(pytestconfig):
+    deck = make_deck()
+    assert len(deck.cards) == 52, (
+        f"A new Deck should hold 52 cards, but it holds {len(deck.cards)}."
+    )
+    values = [f"{card.suit}{card.rank}" for card in deck.cards]
+    assert sorted(values) == sorted(FULL_DECK), (
+        "A new Deck should hold every card of a regular deck exactly once. "
+        f"These are wrong or missing: {sorted(set(values) ^ set(FULL_DECK))}"
+    )
+    assert not deck.is_empty(), "is_empty() should return False for a deck that still has cards."
+    deck.cards = []
+    assert deck.is_empty(), "is_empty() should return True for a deck without cards."
+
+
+def test_function_deal_card(pytestconfig):
+    deck = make_deck()
+    before = [f"{card.suit}{card.rank}" for card in deck.cards]
+    card = deck.deal_card()
+    assert len(deck.cards) == 51, (
+        f"deal_card() should take the card out of the deck, leaving 51 cards, "
+        f"but the deck has {len(deck.cards)}."
+    )
+    value = f"{card.suit}{card.rank}"
+    assert value in before, f"deal_card() returned {value!r}, which is not a card of the deck."
+    assert value not in [f"{c.suit}{c.rank}" for c in deck.cards], (
+        f"deal_card() returned {value!r}, but that card is still in the deck."
+    )
+
+
+@pytest.mark.parametrize("number", [0, 1, 5, 13])
+def test_function_deal_cards(pytestconfig, number):
+    deck = make_deck()
+    hand = deck.deal_cards(number)
+    assert len(hand) == number, (
+        f"deal_cards({number}) should return {number} cards, but it returned {len(hand)}."
+    )
+    assert len(deck.cards) == 52 - number, (
+        f"After deal_cards({number}) the deck should have {52 - number} cards left, "
+        f"but it has {len(deck.cards)}."
+    )
+    assert len(set(f"{card.suit}{card.rank}" for card in hand)) == number, (
+        f"deal_cards({number}) returned the same card more than once: {hand!r}."
+    )
+
+
+# --- DiscardPile ---------------------------------------------------------------
+
+def test_function_discard_pile(pytestconfig):
+    pile = call_function(__file__, "DiscardPile", [make_card("D7")])
+    assert [f"{c.suit}{c.rank}" for c in pile.cards] == ["D7"], (
+        f"A new DiscardPile should start with the card it was given, "
+        f"but its cards are {pile.cards!r}."
+    )
+    assert f"{pile.top_card().suit}{pile.top_card().rank}" == "D7", (
+        f"top_card() should return the card on top (D7), but it returned {pile.top_card()!r}."
+    )
+    assert pile.current_suit == "D", (
+        f"The current suit of a pile started with D7 should be 'D', "
+        f"but it is {pile.current_suit!r}."
+    )
+
+
+def test_function_add(pytestconfig):
+    pile = make_pile("D7")
+    with capture_outputs([]) as output:
+        pile.add(make_card("S7"), "S")
+    assert output.capture() == "", (
+        f"add() should only put the card on the pile, "
+        f"but it printed {output.capture()!r}."
+    )
+    assert f"{pile.top_card().suit}{pile.top_card().rank}" == "S7", (
+        f"After add(S7, 'S') the top card should be S7, but it is {pile.top_card()!r}."
+    )
+    assert pile.current_suit == "S", (
+        f"After add(S7, 'S') the current suit should be 'S', but it is {pile.current_suit!r}."
+    )
+
+
+def test_function_add_eight(pytestconfig):
+    pile = make_pile("D7")
+    with capture_outputs([]) as output:
+        pile.add(make_card("S8"), "H")
+    assert output.capture() == "", (
+        f"Choosing a new suit after an 8 is up to play_turn: add() should not "
+        f"ask the player anything, but it printed {output.capture()!r}."
+    )
+    assert f"{pile.top_card().suit}{pile.top_card().rank}" == "S8", (
+        f"After add(S8, 'H') the top card should be S8, but it is {pile.top_card()!r}."
+    )
+    assert pile.current_suit == "H", (
+        f"add(card, suit) should store the suit it is given as the current suit. "
+        f"After add(S8, 'H') it should be 'H', but it is {pile.current_suit!r}."
+    )
+
+
+def test_function_refill_deck(pytestconfig):
+    pile = make_pile("S7", below=["D3", "H9", "CK"])
+    deck = make_deck([])
+    pile.refill_deck(deck)
+    assert [f"{c.suit}{c.rank}" for c in pile.cards] == ["S7"], (
+        f"refill_deck() should leave only the top card on the pile, "
+        f"but the pile holds {pile.cards!r}."
+    )
+    assert sorted(f"{c.suit}{c.rank}" for c in deck.cards) == ["CK", "D3", "H9"], (
+        f"refill_deck() should put the other cards back into the deck, "
+        f"but the deck holds {deck.cards!r}."
+    )
+
+
+# --- Player --------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "looking_for,found",
+    [("H7", True), ("C10", True), ("S3", False), ("H10", False), ("D", False)]
+)
+def test_function_find_card(pytestconfig, looking_for, found):
+    player = make_player(["H7", "C10", "DK"])
+    card = player.find_card(looking_for)
+    if found:
+        assert card is not None, (
+            f"find_card({looking_for!r}) should return the card, but it returned None."
+        )
+        assert f"{card.suit}{card.rank}" == looking_for, (
+            f"find_card({looking_for!r}) returned {card!r} instead."
+        )
+    else:
+        assert card is None, (
+            f"The player does not have {looking_for!r}, so find_card({looking_for!r}) "
+            f"should return None, but it returned {card!r}."
+        )
+
+
+def test_function_play_turn(pytestconfig):
+    player = make_player(["H7", "S3"])
+    deck = make_deck(["D4"])
+    pile = make_pile("HK")
+    with capture_outputs(["h7"]) as output:
+        player.play_turn(deck, pile)
+    assert output.capture() == turn_text("HK", "H", ["H7", "S3"], "h7"), (
+        f"Playing a card that matches should end the turn. Got:\n{output.capture()}"
+    )
+    assert [f"{c.suit}{c.rank}" for c in player.cards] == ["S3"], (
+        f"The played card should be gone from the hand, but it holds {player.cards!r}."
+    )
+    assert f"{pile.top_card().suit}{pile.top_card().rank}" == "H7", (
+        f"The played card should be on the discard pile, but its top card is {pile.top_card()!r}."
+    )
+    assert pile.current_suit == "H", (
+        f"After playing H7 the current suit should be 'H', but it is {pile.current_suit!r}."
+    )
+
+
+@pytest.mark.parametrize(
+    "value,top,expected",
+    [("S9", "H9", "S"), ("D7", "C7", "D")]  # same rank, other suit
+)
+def test_function_play_turn_changes_suit(pytestconfig, value, top, expected):
+    player = make_player([value, "H3"])
+    deck = make_deck(["D4"])
+    pile = make_pile(top)
+    with capture_outputs([value.lower()]) as output:
+        player.play_turn(deck, pile)
+    assert output.capture() == turn_text(top, top[0], [value, "H3"], value.lower()), (
+        f"Playing a card with the same rank should end the turn. Got:\n{output.capture()}"
+    )
+    assert pile.current_suit == expected, (
+        f"Playing {value} on {top} changes the suit that has to be matched, so the "
+        f"current suit should be {expected!r}, but it is {pile.current_suit!r}."
+    )
+
+
+def test_function_play_turn_rejects(pytestconfig):
+    player = make_player(["H7", "S3"])
+    deck = make_deck(["D4"])
+    pile = make_pile("HK")
+    with capture_outputs(["d9", "s3", "h7"]) as output:
+        player.play_turn(deck, pile)
+    expected = (
+        turn_text("HK", "H", ["H7", "S3"], "d9", NOT_IN_HAND)
+        + turn_text("HK", "H", ["H7", "S3"], "s3", NO_MATCH)
+        + turn_text("HK", "H", ["H7", "S3"], "h7")
+    )
+    assert output.capture() == expected, (
+        f"A card the player doesn't have and a card that doesn't match should both be "
+        f"refused, after which the player may try again. Got:\n{output.capture()}"
+    )
+
+
+def test_function_play_turn_draws(pytestconfig):
+    player = make_player(["H7"])
+    deck = make_deck(["D4", "C2"])
+    pile = make_pile("HK")
+    with capture_outputs(["d"]) as output:
+        player.play_turn(deck, pile)
+    assert output.capture() == turn_text("HK", "H", ["H7"], "d", DREW), (
+        f"Typing 'd' should draw a card and end the turn. Got:\n{output.capture()}"
+    )
+    assert len(player.cards) == 2, (
+        f"After drawing, the player should hold 2 cards, but they hold {player.cards!r}."
+    )
+    assert len(deck.cards) == 1, (
+        f"After drawing, the deck should have 1 card left, but it has {len(deck.cards)}."
+    )
+
+
+def test_function_play_turn_refills_the_deck(pytestconfig):
+    player = make_player(["H7"])
+    deck = make_deck(["D4"])
+    pile = make_pile("SK", below=["D3", "H9"])
+    with capture_outputs(["d"]) as output:
+        player.play_turn(deck, pile)
+    assert [f"{c.suit}{c.rank}" for c in pile.cards] == ["SK"], (
+        f"Drawing the last card of the deck should refill it from the discard pile, "
+        f"leaving only the top card there. The pile holds {pile.cards!r}."
+    )
+    assert sorted(f"{c.suit}{c.rank}" for c in deck.cards) == ["D3", "H9"], (
+        f"The cards of the discard pile should be back in the deck, "
+        f"but the deck holds {deck.cards!r}."
+    )
+
+
+def test_function_play_turn_eight(pytestconfig):
+    player = make_player(["H8", "S3"])
+    deck = make_deck(["D4"])
+    pile = make_pile("CK")
+    with capture_outputs(["h8", "d"]) as output:
+        player.play_turn(deck, pile)
+    assert output.capture() == turn_text("CK", "C", ["H8", "S3"], "h8",
+                                         SUIT_PROMPT + "d\n"), (
+        f"Playing an 8 should ask the player which suit they want. Got:\n{output.capture()}"
+    )
+    assert pile.current_suit == "D", (
+        f"After choosing 'd', the current suit should be 'D', but it is {pile.current_suit!r}."
+    )
+
+
+# --- the whole game ------------------------------------------------------------
+
+@pytest.mark.parametrize("seed,game", GAMES, ids=["player 2 wins", "player 1 wins with an 8"])
+def test_function_script(pytestconfig, seed, game):
+    random.seed(seed)
+    run_script(__file__, game, build_expected(game, seed))

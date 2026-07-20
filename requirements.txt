@@ -1,0 +1,5 @@
+-e ./.p1_util
+pytest
+ipywidgets
+ipython
+jupyter

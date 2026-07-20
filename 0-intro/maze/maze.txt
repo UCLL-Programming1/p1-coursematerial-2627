@@ -1,0 +1,79 @@
+ROOM: Entrance
+DESCRIPTION: You stand before the ancient gates of the Forgotten Labyrinth. The air is thick with mystery.
+EXITS: north=Hallway of Echoes; east=Collapsed Alcove
+
+ROOM: Collapsed Alcove
+DESCRIPTION: A small chamber filled with rubble and broken statues. Dust swirls in the dim light.
+EXITS: west=Entrance
+
+ROOM: Hallway of Echoes
+DESCRIPTION: A long corridor where every footstep reverberates like whispers of the past.
+EXITS: south=Entrance; north=Gallery of Shadows; east=Crossroad of Whispers
+
+ROOM: Crossroad of Whispers
+DESCRIPTION: Four paths diverge here, and faint voices seem to call from every direction.
+EXITS: west=Hallway of Echoes; east=Hall of Forgotten Kings; north=Silent Shrine; south=Chamber of Murmurs
+
+ROOM: Silent Shrine
+DESCRIPTION: A shrine covered in moss and silence. The statues seem to watch you.
+EXITS: south=Crossroad of Whispers
+
+ROOM: Chamber of Murmurs
+DESCRIPTION: A circular room where the walls hum softly, as if alive.
+EXITS: north=Crossroad of Whispers
+
+ROOM: Gallery of Shadows
+DESCRIPTION: Tall columns cast eerie shadows that dance as you move.
+EXITS: south=Hallway of Echoes; north=Sanctum of Secrets
+
+ROOM: Sanctum of Secrets
+DESCRIPTION: A grand hall with faded murals depicting forgotten battles.
+EXITS: south=Gallery of Shadows; east=Hall of Forgotten Kings; west=Hall of Lost Souls
+
+ROOM: Hall of Lost Souls
+DESCRIPTION: The air grows cold. You feel unseen eyes following your every move.
+EXITS: east=Sanctum of Secrets
+
+ROOM: Hall of Forgotten Kings
+DESCRIPTION: Statues of ancient rulers line the walls, their faces worn by time.
+EXITS: west=Sanctum of Secrets; east=Crossroad of Fate
+
+ROOM: Crossroad of Fate
+DESCRIPTION: A vast intersection where the floor is etched with cryptic symbols.
+EXITS: west=Hall of Forgotten Kings; north=Vault of Eternity; south=Hall of Whispers; east=Hall of the Final Light
+
+ROOM: Vault of Eternity
+DESCRIPTION: A chamber filled with towering stone doors, each locked for centuries.
+EXITS: south=Crossroad of Fate
+
+ROOM: Hall of Whispers
+DESCRIPTION: The walls seem to breathe, and faint whispers echo from unseen mouths.
+EXITS: north=Crossroad of Fate; south=Hall of Shadows
+
+ROOM: Hall of Shadows
+DESCRIPTION: Darkness clings to the walls, and your torch barely pierces the gloom.
+EXITS: north=Hall of Whispers; east=Hall of the Final Light
+
+ROOM: Hall of the Final Light
+DESCRIPTION: A radiant glow spills from the far end of this hall, promising freedom.
+EXITS: west=Hall of Shadows; east=Exit; north=Crossroad of Fate
+
+ROOM: Exit
+DESCRIPTION: You step into the sunlight, leaving the labyrinth behind. Victory is yours.
+EXITS: west=Hall of the Final Light
+
+ROOM: Hall of Forgotten Voices
+DESCRIPTION: A hall where whispers of the past swirl like a storm.
+EXITS: north=Silent Shrine; east=Hall of Shadows
+
+ROOM: Chamber of Eternal Gaze
+DESCRIPTION: Eyes carved into the walls seem to follow your every move.
+EXITS: west=Gallery of Shadows; south=Vault of Eternity
+
+ROOM: Sanctuary of Broken Oaths
+DESCRIPTION: Fragments of shattered vows litter the floor.
+EXITS: north=Hall of Lost Souls; east=Hall of Whispers
+
+ROOM: Hall of Silent Screams
+DESCRIPTION: The silence here is deafening, yet you feel screams trapped in the walls.
+EXITS: west=Hall of Forgotten Voices; south=Hall of Shadows

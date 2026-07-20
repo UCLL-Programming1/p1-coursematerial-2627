@@ -1,0 +1,11 @@
+{
+    "files.exclude": {
+        "**/.*": true
+    },
+    "workbench.editor.enablePreview": false,
+    "workbench.editor.editorActionsLocation": "hidden",
+    "workbench.editorAssociations": {
+        "*.md": "vscode.markdown.preview.editor"
+    },
+    "chat.disableAIFeatures": true
+}

@@ -1,0 +1,5 @@
+Food,15
+Transport,4
+Food,8
+Games,20
+Books,12

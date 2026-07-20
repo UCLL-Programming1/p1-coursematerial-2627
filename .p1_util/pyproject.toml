@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "p1-util"
+version = "0.1.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/p1_util"]
+
+[project.entry-points.pytest11]
+   p1_util = "p1_util.tests.pytest_plugin"
