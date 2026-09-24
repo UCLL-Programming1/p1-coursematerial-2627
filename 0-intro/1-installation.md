@@ -113,9 +113,15 @@ This should open a window on the bottom of VS Code:
 
 <img src="../.assets/terminal.png" alt="alt text" width="1319">
 
-(make sure it says `p1-coursematerial-2627`)
+(make sure it says `p1-coursematerial-2627` - possibly starting with your directory prefix and ending with `-main`)
 
-In this terminal copy/paste the following command:
+On **Windows**, first copy/paste the command:
+```none
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+(If this command results in an error, reach out to your lecturer)
+
+Then copy/paste the following command:
 ```none
 python3 -m venv .venv
 ```
